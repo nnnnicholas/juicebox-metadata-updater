@@ -1,21 +1,36 @@
-import { config } from "dotenv";
-config();
+const JBPROJECTS_ADDRESS = "0xd8b4359143eda5b2d763e127ed27c77addbc47d3";
+const JB_PROJECT_CARDS = "0xe601eae33a0109147a6f3cd5f81997233d42fedd";
 
-import { createPublicClient, http } from "viem";
-import { mainnet } from "viem/chains";
+// Function to update OpenSea metadata for all JBProject tokens
+async function fetchData(tokenId: number) {
+  const url = `https://api.opensea.io/api/v1/asset/${JBPROJECTS_ADDRESS}/${tokenId}/?force_update=true`;
 
-const rpc = process.env.ALCHEMY_RPC_URL;
+  try {
+    const response = await fetch(url);
 
-const client = createPublicClient({
-  chain: mainnet,
-  transport: http(rpc ? rpc : ""),
-});
-
-async function getBlockNumber() {
-  const blockNumber = await client.getBlockNumber();
-  return `Block number: ${blockNumber}`;
+    if (response.ok) {
+      const data = await response.json();
+      console.log(`Data for token ID ${tokenId}:`, data);
+    } else {
+      console.error(
+        `Error fetching data for token ID ${tokenId}:`,
+        response.statusText
+      );
+    }
+  } catch (error) {
+    console.error(`Error fetching data for token ID ${tokenId}:`, error);
+  }
 }
 
-getBlockNumber().then((res) => console.log(res));
+// Loop through the token IDs from 1 to 472 and make a GET request for each
+async function fetchAllData() {
+  const startTokenId = 1;
+  const endTokenId = 472;
 
-// export default getBlockNumber;
+  for (let tokenId = startTokenId; tokenId <= endTokenId; tokenId++) {
+    await fetchData(tokenId);
+  }
+}
+
+// Call the fetchAllData function
+fetchAllData();
