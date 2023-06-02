@@ -1,5 +1,9 @@
+import { getTokenCount } from "./getTokenCount";
+
 const JBPROJECTS_ADDRESS = "0xd8b4359143eda5b2d763e127ed27c77addbc47d3";
-const JB_PROJECT_CARDS = "0xe601eae33a0109147a6f3cd5f81997233d42fedd";
+// const JB_PROJECT_CARDS = "0xe601eae33a0109147a6f3cd5f81997233d42fedd";
+const firstTokenId = 1;
+const lastTokenId = getTokenCount();
 
 // Function to update OpenSea metadata for all JBProject tokens
 async function fetchData(tokenId: number) {
@@ -22,12 +26,9 @@ async function fetchData(tokenId: number) {
   }
 }
 
-// Loop through the token IDs from 1 to 472 and make a GET request for each
+// Loop through the token IDs make a GET request to opensea for each
 async function fetchAllData() {
-  const startTokenId = 1;
-  const endTokenId = 472;
-
-  for (let tokenId = startTokenId; tokenId <= endTokenId; tokenId++) {
+  for (let tokenId = firstTokenId; tokenId <= lastTokenId; tokenId++) {
     await fetchData(tokenId);
   }
 }
