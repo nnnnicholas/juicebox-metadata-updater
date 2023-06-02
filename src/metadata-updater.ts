@@ -1,13 +1,21 @@
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-const dotenv_1 = require("dotenv");
-const viem_1 = require("viem");
-const chains_1 = require("viem/chains");
-(0, dotenv_1.config)();
-const transport = (0, viem_1.http)(process.env.ALCHEMY_RPC_URL);
-const client = (0, viem_1.createPublicClient)({
-    chain: chains_1.mainnet,
-    transport: (0, viem_1.http)(),
+import { config } from "dotenv";
+config();
+
+import { createPublicClient, http } from "viem";
+import { mainnet } from "viem/chains";
+
+const rpc = process.env.ALCHEMY_RPC_URL;
+
+const client = createPublicClient({
+  chain: mainnet,
+  transport: http(rpc ? rpc : ""),
 });
-const blockNumber = await client.getBlockNumber();
-exports.default = `Block number: ${blockNumber}`;
+
+async function getBlockNumber() {
+  const blockNumber = await client.getBlockNumber();
+  return `Block number: ${blockNumber}`;
+}
+
+getBlockNumber().then((res) => console.log(res));
+
+// export default getBlockNumber;

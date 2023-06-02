@@ -1,0 +1,9 @@
+.
+./pnpm-lock.yaml
+./.gitignore
+./package.json
+./.eslintrc.js
+./tsconfig.json
+./directory.txt
+./src
+./src/metadata-updater.ts
