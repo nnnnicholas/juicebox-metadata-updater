@@ -25,6 +25,7 @@ const lastTokenId = (await getTokenCount()) as number;
 
 const bucketSize = 1; // Maximum number of requests that can be sent at a time
 const leakRate = 1000; // Delay in milliseconds between subsequent requests
+let failedRequests: number[] = [];
 
 // Function to simulate delay
 function delay(ms: number) {
@@ -34,7 +35,6 @@ function delay(ms: number) {
 // Function to update OpenSea metadata for all JBProject tokens
 async function fetchData(tokenId: number) {
   const url = `https://api.opensea.io/api/v1/asset/${JBPROJECTS_ADDRESS}/${tokenId}/?force_update=true`;
-  //   console.log(url);
 
   try {
     const response = await fetch(url, options);
@@ -48,21 +48,37 @@ async function fetchData(tokenId: number) {
         `Error fetching data for token ID ${tokenId}:`,
         response.statusText
       );
+      failedRequests.push(tokenId); // If a request fails, add it to the queue
     }
   } catch (error) {
     console.error(`Error fetching data for token ID ${tokenId}:`, error);
+    failedRequests.push(tokenId); // If a request fails, add it to the queue
+  }
+}
+
+async function processTokenIds(tokenIds: number[]) {
+  for (let i = 0; i < tokenIds.length; i++) {
+    const tokenId = tokenIds[i];
+    await fetchData(tokenId);
+
+    if (i % bucketSize === 0) {
+      await delay(leakRate);
+    }
   }
 }
 
 // Loop through the token IDs make a GET request to opensea for each
 async function fetchAllData() {
-  for (let tokenId = firstTokenId; tokenId <= lastTokenId; tokenId++) {
-    await fetchData(tokenId);
+  const allTokenIds = Array.from(
+    { length: lastTokenId - firstTokenId + 1 },
+    (_, i) => firstTokenId + i
+  );
+  await processTokenIds(allTokenIds);
 
-    // If we've hit the bucket size, we wait for the leakRate before continuing
-    if (tokenId % bucketSize === 0) {
-      await delay(leakRate);
-    }
+  while (failedRequests.length > 0) {
+    console.log(`Retrying failed requests...`);
+    await processTokenIds(failedRequests);
+    failedRequests = [];
   }
 }
 
