@@ -1,3 +1,4 @@
+import fs from "fs";
 import { getTokenCount } from "./getTokenCount.js";
 
 const baseUrl = "https://api.opensea.io/api/v1/asset";
@@ -25,7 +26,7 @@ const lastTokenId = (await getTokenCount()) as number;
 
 const bucketSize = 1; // Maximum number of requests that can be sent at a time
 const leakRate = 1000; // Delay in milliseconds between subsequent requests
-let failedRequests: number[] = [];
+const failedRequests: number[] = [];
 
 // Function to simulate delay
 function delay(ms: number) {
@@ -42,7 +43,6 @@ async function fetchData(tokenId: number) {
     if (response.ok) {
       const data = await response.json();
       console.log(`Request for token ID ${tokenId} successful.`);
-      //   console.log(`Data for token ID ${tokenId}:`, data);
     } else {
       console.error(
         `Error fetching data for token ID ${tokenId}:`,
@@ -56,30 +56,45 @@ async function fetchData(tokenId: number) {
   }
 }
 
-async function processTokenIds(tokenIds: number[]) {
-  for (let i = 0; i < tokenIds.length; i++) {
-    const tokenId = tokenIds[i];
-    await fetchData(tokenId);
+// Loop through the token IDs make a GET request to opensea for each
+async function fetchAllData() {
+  const startTime = Date.now(); // Start time
+  let attempts = 0; // To count the number of attempts
 
-    if (i % bucketSize === 0) {
+  for (let tokenId = firstTokenId; tokenId <= lastTokenId; tokenId++) {
+    await fetchData(tokenId);
+    attempts++;
+
+    // If we've hit the bucket size, we wait for the leakRate before continuing
+    if (tokenId % bucketSize === 0) {
       await delay(leakRate);
     }
   }
-}
-
-// Loop through the token IDs make a GET request to opensea for each
-async function fetchAllData() {
-  const allTokenIds = Array.from(
-    { length: lastTokenId - firstTokenId + 1 },
-    (_, i) => firstTokenId + i
-  );
-  await processTokenIds(allTokenIds);
 
   while (failedRequests.length > 0) {
-    console.log(`Retrying failed requests...`);
-    await processTokenIds(failedRequests);
-    failedRequests = [];
+    const tokenId = failedRequests.pop();
+
+    if (tokenId !== undefined) {
+      console.log(`Retrying for token ID ${tokenId}`);
+      await fetchData(tokenId);
+      attempts++;
+
+      if (tokenId % bucketSize === 0) {
+        await delay(leakRate);
+      }
+    }
   }
+
+  const endTime = Date.now(); // End time
+  const elapsedTime = (endTime - startTime) / 1000; // Elapsed time in seconds
+  const totalTokensFetched = lastTokenId; // Total tokens fetched
+
+  // Write the log to a file named 'log.txtHere's the continuation of the code:
+
+  fs.appendFileSync(
+    "log.txt",
+    `Fetch completed at ${new Date().toISOString()}.\nElapsed time: ${elapsedTime} seconds.\nTotal attempts: ${attempts}.\nTotal tokens fetched: ${totalTokensFetched}\n`
+  );
 }
 
 // Call the fetchAllData function
