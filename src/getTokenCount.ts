@@ -6,7 +6,7 @@ import { createPublicClient, http } from "viem";
 import { mainnet } from "viem/chains";
 
 const RPC = process.env.ALCHEMY_RPC_URL;
-const CONTRACTADDRESS = "0xD8B4359143eda5B2d763E127Ed27c77addBc47d3";
+const JBPROJECTS_ADDRESS = "0xD8B4359143eda5B2d763E127Ed27c77addBc47d3";
 const ABI = [
   {
     inputs: [],
@@ -23,15 +23,15 @@ const client = createPublicClient({
 
 const result = client.readContract({
   abi: ABI,
-  address: CONTRACTADDRESS,
+  address: JBPROJECTS_ADDRESS,
   functionName: "count",
 });
 
-export default async function getTokenCount() {
+export async function getTokenCount(): Promise<number> {
   const count = await result;
   // console.log(`Total supply of JBProjects: ${count}`);
-  return count;
+  return Number(count);
 }
 
 // For local testing
-// getTokenCount().then((res) => console.log("Total supply of JBProjects:", res));
+getTokenCount().then((res) => console.log("Total supply of JBProjects:", res));

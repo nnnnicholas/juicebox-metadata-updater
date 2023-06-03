@@ -6,7 +6,8 @@
     "strict": true,
     "forceConsistentCasingInFileNames": true,
     // "noEmit": false,
-    "outDir": "dist",
+    "rootDir": "src",   // Input directory
+    "outDir": "dist",   // Output directory
     "esModuleInterop": true,
     "module": "esnext",
     "moduleResolution": "node",

@@ -22,7 +22,7 @@
 	"scripts": {
 		"lint": "eslint . --ext .ts,.tsx",
 		"build": "tsc",
-		"dev": "ts-node src/metadata-updater.ts",
+		"dev": "pnpm build && pnpm node dist/metadata-updater.js",
 		"start": "pnpm build && pm2 start dist/metadata-updater.js",
 		"stop": "pm2 stop metadata-updater",
 		"delete": "pm2 delete metadata-updater",
