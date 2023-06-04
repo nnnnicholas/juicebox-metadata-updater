@@ -1,6 +1,6 @@
 import fs from "fs";
 import express from "express";
-import { getTokenCount } from "./getTokenCount.js";
+import { getTokenCount } from "./get721TokenCount.js";
 import cron from "node-cron";
 import { Request, Response } from "express";
 import { config } from "dotenv";
