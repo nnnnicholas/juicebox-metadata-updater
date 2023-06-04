@@ -23,4 +23,9 @@ fetch(endpoint, {
   }),
 })
   .then((r) => r.json())
-  .then((data) => console.log(JSON.stringify(data, null, 2)));
+  .then((data) => {
+    const ids = data.data.erc1155Tokens.map((token: { id: string }) =>
+      parseInt(token.id.split("/")[1])
+    );
+    console.log(ids);
+  });
