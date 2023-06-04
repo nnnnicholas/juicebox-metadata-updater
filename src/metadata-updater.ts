@@ -15,6 +15,7 @@ const MAX_RUNTIME = 20; // Maximum runtime in minutes
 /// Rate limiting
 const BUCKET_SIZE = 1; // Maximum number of requests that can be sent at a time
 const LEAK_RATE = 1000; // Delay in milliseconds between subsequent requests
+const RETRY_LEAK_RATE = 2 * LEAK_RATE; // The leak rate for retry requests
 // Contract size
 const FIRST_TOKEN_ID = 1;
 const LAST_TOKEN_ID = (await getTokenCount()) as number;
@@ -104,7 +105,7 @@ async function fetchAllData() {
       attempts++;
 
       if (tokenId % BUCKET_SIZE === 0) {
-        await delay(LEAK_RATE);
+        await delay(RETRY_LEAK_RATE);
       }
     }
   }
