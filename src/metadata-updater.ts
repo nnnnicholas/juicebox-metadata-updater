@@ -21,6 +21,7 @@ const options = {
 };
 
 const JBPROJECTS_ADDRESS = "0xd8b4359143eda5b2d763e127ed27c77addbc47d3";
+const MAX_RUNTIME = 20; // Maximum runtime in minutes
 const firstTokenId = 1;
 const lastTokenId = (await getTokenCount()) as number;
 
@@ -61,6 +62,11 @@ async function fetchAllData() {
   const startTime = Date.now(); // Start time
   let attempts = 0; // To count the number of attempts
 
+  // Set a timeout to clear the failedRequests array after 20 minutes
+  const timeout = setTimeout(() => {
+    failedRequests.length = 0;
+  }, MAX_RUNTIME * 60 * 1000); // minutes in milliseconds
+
   for (let tokenId = firstTokenId; tokenId <= lastTokenId; tokenId++) {
     await fetchData(tokenId);
     attempts++;
@@ -95,6 +101,7 @@ async function fetchAllData() {
     "log.txt",
     `Fetch completed at ${new Date().toISOString()}.\nElapsed time: ${elapsedTime} seconds.\nTotal attempts: ${attempts}.\nTotal tokens fetched: ${totalTokensFetched}\n`
   );
+  clearTimeout(timeout);
 }
 
 // Call the fetchAllData function
