@@ -1,7 +1,23 @@
 import fs from "fs";
+import express from "express";
 import { getTokenCount } from "./getTokenCount.js";
+import cron from "node-cron";
+import { Request, Response } from "express";
 import { config } from "dotenv";
 config();
+
+// Script execution parameters
+/// Contract to update
+const JBPROJECTS_ADDRESS = "0xd8b4359143eda5b2d763e127ed27c77addbc47d3";
+/// Atomatic execution frequency and runtime
+const CRON_FREQUENCY = 25; // Frequency in minutes
+const MAX_RUNTIME = 20; // Maximum runtime in minutes
+/// Rate limiting
+const BUCKET_SIZE = 1; // Maximum number of requests that can be sent at a time
+const LEAK_RATE = 1000; // Delay in milliseconds between subsequent requests
+// Contract size
+const FIRST_TOKEN_ID = 1;
+const LAST_TOKEN_ID = (await getTokenCount()) as number;
 
 const BASE_URL = "https://api.opensea.io/api/v1/asset";
 const API_KEY = process.env.OPENSEA_API_KEY;
@@ -22,14 +38,9 @@ const OPTIONS = {
   },
 };
 
-const JBPROJECTS_ADDRESS = "0xd8b4359143eda5b2d763e127ed27c77addbc47d3";
-const MAX_RUNTIME = 20; // Maximum runtime in minutes
-const FIRST_TOKEN_ID = 1;
-const LAST_TOKEN_ID = (await getTokenCount()) as number;
-
-const BUCKET_SIZE = 1; // Maximum number of requests that can be sent at a time
-const LEAK_RATE = 1000; // Delay in milliseconds between subsequent requests
+// Runtime global state
 const failedRequests: number[] = [];
+let isRunning = false;
 
 // Function to simulate delay
 function delay(ms: number) {
@@ -61,6 +72,11 @@ async function fetchData(tokenId: number) {
 
 // Loop through the token IDs make a GET request to opensea for each
 async function fetchAllData() {
+  if (isRunning) {
+    return; // If the task is already running, return early.
+  }
+  isRunning = true;
+
   const startTime = Date.now(); // Start time
   let attempts = 0; // To count the number of attempts
 
@@ -102,7 +118,37 @@ async function fetchAllData() {
     `Fetch completed at ${new Date().toISOString()}.\nElapsed time: ${elapsedTime} seconds.\nTotal attempts: ${attempts}.\nTotal tokens fetched: ${totalTokensFetched}\n`
   );
   clearTimeout(timeout);
+  isRunning = false; // Remember to reset the lock after the task completes.
 }
+
+// Define an Express app.
+const app = express();
+
+// Define a route that will trigger your fetchAllData function.
+app.get("/refresh", async (req: Request, res: Response) => {
+  if (!isRunning) {
+    await fetchAllData();
+    res.send("Refreshing data.");
+  } else {
+    res.send("Data refresh already in progress.");
+  }
+});
+
+// Define the port to listen on.
+const port = process.env.PORT || 3000;
+
+// Start listening for requests.
+app.listen(port, () => {
+  console.log(`Server started at http://localhost:${port}`);
+});
+
+// Set a cron job to call the function every N minutes
+cron.schedule(`*/${CRON_FREQUENCY} * * * *`, async function () {
+  if (!isRunning) {
+    console.log("Running cron job");
+    await fetchAllData();
+  }
+});
 
 // Call the fetchAllData function
 fetchAllData();
