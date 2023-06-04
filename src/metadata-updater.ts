@@ -1,5 +1,7 @@
 import fs from "fs";
 import { getTokenCount } from "./getTokenCount.js";
+import { config } from "dotenv";
+config();
 
 const BASE_URL = "https://api.opensea.io/api/v1/asset";
 const API_KEY = process.env.OPENSEA_API_KEY;
