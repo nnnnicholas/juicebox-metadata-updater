@@ -62,7 +62,10 @@ const OPTIONS = {
 type FailedRequest = { tokenId: number; contractAddress: string };
 const failedRequests: FailedRequest[] = [];
 let isRunning = false;
-
+let inRecovery = false;
+let consecutiveFailures = 0;
+let recoveryPeriodRemaining = 0;
+let recoveryPeriods = 0; // Total recovery periods
 
 // Function to simulate delay
 function delay(ms: number) {
@@ -72,6 +75,7 @@ function delay(ms: number) {
 // Function to update OpenSea metadata for all JBProject tokens
 async function fetchData(tokenId: number, contractAddress: string) {
   const url = `${BASE_URL}/${contractAddress}/${tokenId}/?force_update=true`;
+  let requestSuccessful = false;
 
   try {
     const response = await fetch(url, OPTIONS);
@@ -81,6 +85,20 @@ async function fetchData(tokenId: number, contractAddress: string) {
       console.log(
         `Request for ${contractAddress} token ID ${tokenId} successful.`
       );
+      // Mark the request as successful
+      requestSuccessful = true;
+
+      // Reset the consecutiveFailures counter when a request is successful
+      consecutiveFailures = 0;
+
+      // If recoveryPeriodRemaining is active, decrease it
+      if (recoveryPeriodRemaining > 0) {
+        recoveryPeriodRemaining--;
+        if (recoveryPeriodRemaining === 0) {
+          inRecovery = false; // End the recovery period when recoveryPeriodRemaining reaches 0
+          console.log("Recovery period complete. Returning to full speed.");
+        }
+      }
     } else {
       console.error(
         `Error fetching data for token ID ${tokenId}:`,
@@ -91,6 +109,21 @@ async function fetchData(tokenId: number, contractAddress: string) {
   } catch (error) {
     console.error(`Error fetching data for token ID ${tokenId}:`, error);
     failedRequests.push({ tokenId, contractAddress }); // If a request fails, add it to the queue
+  } finally {
+    // Increase the consecutiveFailures counter when a request fails
+    if (!requestSuccessful) {
+      consecutiveFailures++;
+
+      // If there have been more than CONSECUTIVE_FAIL_LIMIT consecutive failures, start the recovery period
+      if (consecutiveFailures > env.CONSECUTIVE_FAIL_LIMIT && !inRecovery) {
+        recoveryPeriodRemaining = env.CONSECUTIVE_FAIL_RECOVERY_PERIOD;
+        inRecovery = true; // Start the recovery period
+        recoveryPeriods++; // Increase the count of recovery periods
+        console.log(
+          "Consecutive failure limit reached, starting recovery period."
+        );
+      }
+    }
   }
 }
 
@@ -102,7 +135,7 @@ async function fetchAllData() {
   isRunning = true;
 
   const startTime = Date.now(); // Start time
-  let attempts = 0; // To count the number of attempts
+  let requestCount = 0; // To count the number of requests
   let total721TokensFetched = 0; // Total 721 tokens fetched
   let total1155TokensFetched = 0; // Total 1155 tokens fetched
   let operationStatus = "completed successfully";
@@ -116,12 +149,12 @@ async function fetchAllData() {
       "logs.txt",
       `Operation timed out after ${
         env.MAX_RUNTIME
-      } minutes at ${new Date().toISOString()}.\nElapsed time: ${elapsedTime} seconds.\nTotal attempts: ${attempts}.\nTotal 721 tokens fetched: ${total721TokensFetched}.\nTotal 1155 tokens fetched: ${total1155TokensFetched}.\n\n`
+      } minutes at ${new Date().toISOString()}.\nElapsed time: ${elapsedTime} seconds.\nTotal requests: ${requestCount}.\nTotal recovery periods: ${recoveryPeriods}.\nTotal 721 tokens fetched: ${total721TokensFetched}.\nTotal 1155 tokens fetched: ${total1155TokensFetched}.\n\n`
     );
     console.log(
       `Operation timed out after ${
         env.MAX_RUNTIME
-      } minutes at ${new Date().toISOString()}. Elapsed time: ${elapsedTime} seconds. Total attempts: ${attempts}. Total 721 tokens fetched: ${total721TokensFetched}. Total 1155 tokens fetched: ${total1155TokensFetched}.`
+      } minutes at ${new Date().toISOString()}. Elapsed time: ${elapsedTime} seconds. Total requests: ${requestCount}. Total recovery periods: ${recoveryPeriods}. Total 721 tokens fetched: ${total721TokensFetched}. Total 1155 tokens fetched: ${total1155TokensFetched}.`
     );
 
     isRunning = false; // Remember to reset the lock after the task completes.
@@ -136,10 +169,10 @@ async function fetchAllData() {
     ) {
       await fetchData(tokenId, env.JBPROJECTS_ADDRESS);
       total721TokensFetched++;
-      attempts++;
+      requestCount++;
 
       // If we've hit the env.BUCKET_SIZE, we wait for the env.LEAK_RATE before continuing
-      if (tokenId % env.BUCKET_SIZE === 0) {
+      if (requestCount % env.BUCKET_SIZE === 0) {
         await delay(env.LEAK_RATE);
       }
     }
@@ -149,9 +182,9 @@ async function fetchAllData() {
     for (const tokenId of tokenIds1155) {
       await fetchData(tokenId, env.JUICEBOX_CARDS_ADDRESS);
       total1155TokensFetched++;
-      attempts++;
+      requestCount++;
       // If we've hit the env.BUCKET_SIZE, we wait for the env.LEAK_RATE before continuing
-      if (tokenId % env.BUCKET_SIZE === 0) {
+      if (requestCount % env.BUCKET_SIZE === 0) {
         await delay(env.LEAK_RATE);
       }
     }
@@ -163,9 +196,9 @@ async function fetchAllData() {
         const { tokenId, contractAddress } = failedRequest;
         console.log(`Retrying for token ID ${tokenId}`);
         await fetchData(tokenId, contractAddress);
-        attempts++;
+        requestCount++;
 
-        if (tokenId % env.BUCKET_SIZE === 0) {
+        if (requestCount % env.BUCKET_SIZE === 0) {
           await delay(env.RETRY_LEAK_RATE);
         }
       }
@@ -176,11 +209,11 @@ async function fetchAllData() {
     // Write the log to a file named 'log.txt'
     fs.appendFileSync(
       "logs.txt",
-      `Operation ${operationStatus} at ${new Date().toISOString()}.\nElapsed time: ${elapsedTime} seconds.\nTotal attempts: ${attempts}.\n
-Total 721 tokens fetched: ${total721TokensFetched}.\nTotal 1155 tokens fetched: ${total1155TokensFetched}.\n\n`
+      `Operation ${operationStatus} at ${new Date().toISOString()}.\nElapsed time: ${elapsedTime} seconds.\nTotal requests: ${requestCount}.\n
+    Total 721 tokens fetched: ${total721TokensFetched}.\nTotal 1155 tokens fetched: ${total1155TokensFetched}.\nTotal recovery periods: ${recoveryPeriods}.\n\n`
     );
     console.log(
-      `Operation ${operationStatus} at ${new Date().toISOString()}. Elapsed time: ${elapsedTime} seconds. Total attempts: ${attempts}. Total 721 tokens fetched: ${total721TokensFetched}. Total 1155 tokens fetched: ${total1155TokensFetched}.`
+      `Operation ${operationStatus} at ${new Date().toISOString()}. Elapsed time: ${elapsedTime} seconds. Total requests: ${requestCount}. Total 721 tokens fetched: ${total721TokensFetched}. Total 1155 tokens fetched: ${total1155TokensFetched}.`
     );
     clearTimeout(timeout);
     isRunning = false; // Reset the lock after the task completes.
@@ -190,13 +223,14 @@ Total 721 tokens fetched: ${total721TokensFetched}.\nTotal 1155 tokens fetched: 
   } finally {
     const endTime = Date.now(); // End time
     const elapsedTime = (endTime - startTime) / 1000; // Elapsed time in seconds
-
     // Write the log to a file named 'logs.txt'
     fs.appendFileSync(
       "logs.txt",
-      `Operation ${operationStatus} at ${new Date().toISOString()}.\nElapsed time: ${elapsedTime} seconds.\nTotal attempts: ${attempts}.\nTotal 721 tokens fetched: ${total721TokensFetched}.\nTotal 1155 tokens fetched: ${total1155TokensFetched}.\n`
+      `Operation ${operationStatus} at ${new Date().toISOString()}.\nElapsed time: ${elapsedTime} seconds.\nTotal requests: ${requestCount}.\nTotal recovery periods: ${recoveryPeriods}.\nTotal 721 tokens fetched: ${total721TokensFetched}.\nTotal 1155 tokens fetched: ${total1155TokensFetched}.\n\n`
     );
-
+    console.log(
+      `Operation ${operationStatus} at ${new Date().toISOString()}. Elapsed time: ${elapsedTime} seconds. Total requests: ${requestCount}. Total recovery periods: ${recoveryPeriods}. Total 721 tokens fetched: ${total721TokensFetched}. Total 1155 tokens fetched: ${total1155TokensFetched}.`
+    );
     clearTimeout(timeout);
     isRunning = false; // Remember to reset the lock after the task completes.
   }
