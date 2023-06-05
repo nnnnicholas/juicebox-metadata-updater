@@ -9,44 +9,51 @@ import { Request, Response } from "express";
 import { config } from "dotenv";
 config();
 
-// Script execution parameters
-/// Contract to update
-const JBPROJECTS_ADDRESS = "0xd8b4359143eda5b2d763e127ed27c77addbc47d3";
-const JUICEBOX_CARDS_ADDRESS = "0xe601eae33a0109147a6f3cd5f81997233d42fedd";
-/// Atomatic execution frequency and runtime
-const CRON_FREQUENCY = process.env.CRON_FREQUENCY; // Frequency in minutes
-const MAX_RUNTIME = process.env.MAX_RUNTIME; // Maximum runtime in minutes
-/// Rate limiting
-const BUCKET_SIZE = process.env.BUCKET_SIZE; // Maximum number of requests that can be sent at a time
-const LEAK_RATE = process.env.LEAK_RATE; // Delay in milliseconds between subsequent requests
-const RETRY_LEAK_RATE = process.env.RETRY_LEAK_RATE; // The leak rate for retry requests
-// Contract size
-const FIRST_TOKEN_ID = process.env.FIRST_TOKEN_ID;
-const LAST_TOKEN_ID = (await getTokenCount()) as number;
+// Define your environment variables
+// Disable non-null assertion temporarily. Non-null assertion is checked at runtime, but TSC doesn't know that.
+/* eslint-disable @typescript-eslint/no-non-null-assertion */
+const env = {
+  JUICEBOX_CARDS_ADDRESS: process.env.JUICEBOX_CARDS_ADDRESS!,
+  JBPROJECTS_ADDRESS: process.env.JBPROJECTS_ADDRESS!,
+  OPENSEA_API_KEY: process.env.OPENSEA_API_KEY!,
+  THEGRAPH_API_KEY: process.env.THEGRAPH_API_KEY!,
+  CRON_FREQUENCY: Number(process.env.CRON_FREQUENCY!),
+  MAX_RUNTIME: Number(process.env.MAX_RUNTIME!),
+  BUCKET_SIZE: Number(process.env.BUCKET_SIZE!),
+  LEAK_RATE: Number(process.env.LEAK_RATE!),
+  RETRY_LEAK_RATE: Number(process.env.RETRY_LEAK_RATE!),
+  FIRST_TOKEN_ID: Number(process.env.FIRST_TOKEN_ID!),
+  CONSECUTIVE_FAIL_LIMIT: Number(process.env.CONSECUTIVE_FAIL_LIMIT!),
+  CONSECUTIVE_FAIL_RECOVERY_PERIOD: Number(
+    process.env.CONSECUTIVE_FAIL_RECOVERY_PERIOD!
+  ),
+};
+/* eslint-enable @typescript-eslint/no-non-null-assertion */
 
-const BASE_URL = "https://api.opensea.io/api/v1/asset";
-const OPENSEA_API_KEY = process.env.OPENSEA_API_KEY;
-
-if (
-  !CRON_FREQUENCY ||
-  !MAX_RUNTIME ||
-  !BUCKET_SIZE ||
-  !LEAK_RATE ||
-  !RETRY_LEAK_RATE ||
-  !FIRST_TOKEN_ID ||
-  !OPENSEA_API_KEY
-) {
-  console.error(
-    "One or more required environment variables are not set. Please check your .env file or environment variables."
-  );
-  process.exit(1);
+// Function to check if all environment variables are set
+function checkEnvVariables(variables: {
+  [key: string]: string | number | undefined;
+}) {
+  for (const key in variables) {
+    if (variables[key] === undefined) {
+      console.error(
+        `Environment variable ${key} is not set. Please check your .env file or environment variables.`
+      );
+      process.exit(1);
+    }
+  }
 }
 
+// Call the function
+checkEnvVariables(env);
+
+const LAST_TOKEN_ID = (await getTokenCount()) as number;
+const BASE_URL = "https://api.opensea.io/api/v1/asset";
 const OPTIONS = {
   headers: {
     "User-Agent":
       "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/50.0.2661.102 Safari/537.36",
-    "X-Api-Key": OPENSEA_API_KEY,
+    "X-Api-Key": env.OPENSEA_API_KEY,
     referrer: BASE_URL,
   },
 };
@@ -101,44 +108,52 @@ async function fetchAllData() {
   let total1155TokensFetched = 0; // Total 1155 tokens fetched
   let operationStatus = "completed successfully";
 
-  // Set a timeout to clear the failedRequests array and log an error message after MAX_RUNTIME minutes
+  // Set a timeout to clear the failedRequests array and log an error message after env.MAX_RUNTIME minutes
   const timeout = setTimeout(() => {
     const currentTime = Date.now();
     const elapsedTime = (currentTime - startTime) / 1000; // Elapsed time in seconds
     failedRequests.length = 0;
     fs.appendFileSync(
       "logs.txt",
-      `Operation timed out after ${MAX_RUNTIME} minutes at ${new Date().toISOString()}.\nElapsed time: ${elapsedTime} seconds.\nTotal attempts: ${attempts}.\nTotal 721 tokens fetched: ${total721TokensFetched}.\nTotal 1155 tokens fetched: ${total1155TokensFetched}.\n\n`
+      `Operation timed out after ${
+        env.MAX_RUNTIME
+      } minutes at ${new Date().toISOString()}.\nElapsed time: ${elapsedTime} seconds.\nTotal attempts: ${attempts}.\nTotal 721 tokens fetched: ${total721TokensFetched}.\nTotal 1155 tokens fetched: ${total1155TokensFetched}.\n\n`
     );
     console.log(
-      `Operation timed out after ${MAX_RUNTIME} minutes at ${new Date().toISOString()}. Elapsed time: ${elapsedTime} seconds. Total attempts: ${attempts}. Total 721 tokens fetched: ${total721TokensFetched}. Total 1155 tokens fetched: ${total1155TokensFetched}.`
+      `Operation timed out after ${
+        env.MAX_RUNTIME
+      } minutes at ${new Date().toISOString()}. Elapsed time: ${elapsedTime} seconds. Total attempts: ${attempts}. Total 721 tokens fetched: ${total721TokensFetched}. Total 1155 tokens fetched: ${total1155TokensFetched}.`
     );
 
     isRunning = false; // Remember to reset the lock after the task completes.
-  }, MAX_RUNTIME * 60 * 1000); // minutes in milliseconds
+  }, env.MAX_RUNTIME * 60 * 1000); // minutes in milliseconds
 
   try {
     // Fetch 721 tokens
-    for (let tokenId = FIRST_TOKEN_ID; tokenId <= LAST_TOKEN_ID; tokenId++) {
-      await fetchData(tokenId, JBPROJECTS_ADDRESS);
+    for (
+      let tokenId = env.FIRST_TOKEN_ID;
+      tokenId <= LAST_TOKEN_ID;
+      tokenId++
+    ) {
+      await fetchData(tokenId, env.JBPROJECTS_ADDRESS);
       total721TokensFetched++;
       attempts++;
 
-      // If we've hit the BUCKET_SIZE, we wait for the LEAK_RATE before continuing
-      if (tokenId % BUCKET_SIZE === 0) {
-        await delay(LEAK_RATE);
+      // If we've hit the env.BUCKET_SIZE, we wait for the env.LEAK_RATE before continuing
+      if (tokenId % env.BUCKET_SIZE === 0) {
+        await delay(env.LEAK_RATE);
       }
     }
 
     // Fetch 1155 tokens
-    const tokenIds1155 = await get1155TokenIds(JUICEBOX_CARDS_ADDRESS);
+    const tokenIds1155 = await get1155TokenIds(env.JUICEBOX_CARDS_ADDRESS);
     for (const tokenId of tokenIds1155) {
-      await fetchData(tokenId, JUICEBOX_CARDS_ADDRESS);
+      await fetchData(tokenId, env.JUICEBOX_CARDS_ADDRESS);
       total1155TokensFetched++;
       attempts++;
-      // If we've hit the BUCKET_SIZE, we wait for the LEAK_RATE before continuing
-      if (tokenId % BUCKET_SIZE === 0) {
-        await delay(LEAK_RATE);
+      // If we've hit the env.BUCKET_SIZE, we wait for the env.LEAK_RATE before continuing
+      if (tokenId % env.BUCKET_SIZE === 0) {
+        await delay(env.LEAK_RATE);
       }
     }
 
@@ -151,8 +166,8 @@ async function fetchAllData() {
         await fetchData(tokenId, contractAddress);
         attempts++;
 
-        if (tokenId % BUCKET_SIZE === 0) {
-          await delay(RETRY_LEAK_RATE);
+        if (tokenId % env.BUCKET_SIZE === 0) {
+          await delay(env.RETRY_LEAK_RATE);
         }
       }
     }
@@ -162,7 +177,8 @@ async function fetchAllData() {
     // Write the log to a file named 'log.txt'
     fs.appendFileSync(
       "logs.txt",
-      `Operation ${operationStatus} at ${new Date().toISOString()}.\nElapsed time: ${elapsedTime} seconds.\nTotal attempts: ${attempts}.\nTotal 721 tokens fetched: ${total721TokensFetched}.\nTotal 1155 tokens fetched: ${total1155TokensFetched}.\n\n`
+      `Operation ${operationStatus} at ${new Date().toISOString()}.\nElapsed time: ${elapsedTime} seconds.\nTotal attempts: ${attempts}.\n
+Total 721 tokens fetched: ${total721TokensFetched}.\nTotal 1155 tokens fetched: ${total1155TokensFetched}.\n\n`
     );
     console.log(
       `Operation ${operationStatus} at ${new Date().toISOString()}. Elapsed time: ${elapsedTime} seconds. Total attempts: ${attempts}. Total 721 tokens fetched: ${total721TokensFetched}. Total 1155 tokens fetched: ${total1155TokensFetched}.`
@@ -209,7 +225,7 @@ app.listen(port, () => {
 });
 
 // Set a cron job to call the function every N minutes
-cron.schedule(`*/${CRON_FREQUENCY} * * * *`, async function () {
+cron.schedule(`*/${env.CRON_FREQUENCY} * * * *`, async function () {
   if (!isRunning) {
     console.log("Running cron job");
     await fetchAllData();
