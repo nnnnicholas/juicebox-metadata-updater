@@ -146,7 +146,7 @@ async function fetchAllData() {
     const elapsedTime = (currentTime - startTime) / 1000; // Elapsed time in seconds
     failedRequests.length = 0;
     fs.appendFileSync(
-      "logs.txt",
+      "cron.log",
       `Operation timed out after ${
         env.MAX_RUNTIME
       } minutes at ${new Date().toISOString()}.\nElapsed time: ${elapsedTime} seconds.\nTotal requests: ${requestCount}.\nTotal recovery periods: ${recoveryPeriods}.\nTotal 721 tokens fetched: ${total721TokensFetched}.\nTotal 1155 tokens fetched: ${total1155TokensFetched}.\n\n`
@@ -206,15 +206,6 @@ async function fetchAllData() {
     const endTime = Date.now(); // End time
     const elapsedTime = (endTime - startTime) / 1000; // Elapsed time in seconds
 
-    // Write the log to a file named 'log.txt'
-    fs.appendFileSync(
-      "logs.txt",
-      `Operation ${operationStatus} at ${new Date().toISOString()}.\nElapsed time: ${elapsedTime} seconds.\nTotal requests: ${requestCount}.\n
-    Total 721 tokens fetched: ${total721TokensFetched}.\nTotal 1155 tokens fetched: ${total1155TokensFetched}.\nTotal recovery periods: ${recoveryPeriods}.\n\n`
-    );
-    console.log(
-      `Operation ${operationStatus} at ${new Date().toISOString()}. Elapsed time: ${elapsedTime} seconds. Total requests: ${requestCount}. Total 721 tokens fetched: ${total721TokensFetched}. Total 1155 tokens fetched: ${total1155TokensFetched}.`
-    );
     clearTimeout(timeout);
     isRunning = false; // Reset the lock after the task completes.
   } catch (error) {
@@ -223,9 +214,9 @@ async function fetchAllData() {
   } finally {
     const endTime = Date.now(); // End time
     const elapsedTime = (endTime - startTime) / 1000; // Elapsed time in seconds
-    // Write the log to a file named 'logs.txt'
+    // Write the log to a file named 'cron.log'
     fs.appendFileSync(
-      "logs.txt",
+      "cron.log",
       `Operation ${operationStatus} at ${new Date().toISOString()}.\nElapsed time: ${elapsedTime} seconds.\nTotal requests: ${requestCount}.\nTotal recovery periods: ${recoveryPeriods}.\nTotal 721 tokens fetched: ${total721TokensFetched}.\nTotal 1155 tokens fetched: ${total1155TokensFetched}.\n\n`
     );
     console.log(
@@ -266,7 +257,7 @@ cron.schedule(`*/${env.CRON_FREQUENCY} * * * *`, function () {
     console.log("Running cron job");
     fetchAllData().catch((error) => {
       const errorMessage = `Error during cron job at ${new Date().toISOString()}: ${error}\n\n`;
-      fs.appendFileSync("logs.txt", errorMessage);
+      fs.appendFileSync("cron.log", errorMessage);
       console.error(errorMessage);
     });
   }
