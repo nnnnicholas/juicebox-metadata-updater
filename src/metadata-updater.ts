@@ -240,9 +240,12 @@ async function fetchAllData() {
 const app = express();
 
 // Define a route that will trigger your fetchAllData function.
-app.get("/refresh", async (req: Request, res: Response) => {
+app.get("/refresh", (req: Request, res: Response) => {
   if (!isRunning) {
-    await fetchAllData();
+    fetchAllData().catch((error) => {
+      console.error("Error during data refresh:", error);
+      res.status(500).send("Error during data refresh.");
+    });
     res.send("Refreshing data.");
   } else {
     res.send("Data refresh already in progress.");
@@ -258,10 +261,14 @@ app.listen(port, () => {
 });
 
 // Set a cron job to call the function every N minutes
-cron.schedule(`*/${env.CRON_FREQUENCY} * * * *`, async function () {
+cron.schedule(`*/${env.CRON_FREQUENCY} * * * *`, function () {
   if (!isRunning) {
     console.log("Running cron job");
-    await fetchAllData();
+    fetchAllData().catch((error) => {
+      const errorMessage = `Error during cron job at ${new Date().toISOString()}: ${error}\n\n`;
+      fs.appendFileSync("logs.txt", errorMessage);
+      console.error(errorMessage);
+    });
   }
 });
 
