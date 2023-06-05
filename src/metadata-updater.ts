@@ -63,6 +63,7 @@ type FailedRequest = { tokenId: number; contractAddress: string };
 const failedRequests: FailedRequest[] = [];
 let isRunning = false;
 
+
 // Function to simulate delay
 function delay(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -78,9 +79,7 @@ async function fetchData(tokenId: number, contractAddress: string) {
     if (response.ok) {
       const data = await response.json();
       console.log(
-        `Request for ${
-          Object.keys({ contractAddress })[0]
-        } token ID ${tokenId} successful.`
+        `Request for ${contractAddress} token ID ${tokenId} successful.`
       );
     } else {
       console.error(
