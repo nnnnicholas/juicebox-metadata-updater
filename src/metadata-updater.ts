@@ -3,7 +3,7 @@
 import fs from "fs";
 import express from "express";
 import { getTokenCount } from "./get721TokenCount.js";
-import { get1155TokenIds } from "./get1155TokenIdsFromGraph.js";
+import { getCached1155TokenIds } from "./get1155TokenIdsFromGraph.js";
 import cron from "node-cron";
 import { Request, Response } from "express";
 import { config } from "dotenv";
@@ -181,7 +181,9 @@ async function fetchAllData() {
     }
 
     // Fetch 1155 tokens
-    const tokenIds1155 = await get1155TokenIds(env.JUICEBOX_CARDS_ADDRESS);
+    const tokenIds1155 = await getCached1155TokenIds(
+      env.JUICEBOX_CARDS_ADDRESS
+    );
     for (const tokenId of tokenIds1155) {
       await fetchData(tokenId, env.JUICEBOX_CARDS_ADDRESS);
       total1155TokensFetched++;
