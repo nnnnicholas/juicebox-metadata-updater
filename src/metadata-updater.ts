@@ -206,8 +206,6 @@ async function fetchAllData() {
         }
       }
     }
-    const endTime = Date.now(); // End time
-    const elapsedTime = (endTime - startTime) / 1000; // Elapsed time in seconds
 
     clearTimeout(timeout);
     isRunning = false; // Reset the lock after the task completes.
