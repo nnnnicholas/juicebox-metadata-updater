@@ -27,6 +27,7 @@ const env = {
   CONSECUTIVE_FAIL_RECOVERY_PERIOD: Number(
     process.env.CONSECUTIVE_FAIL_RECOVERY_PERIOD!
   ),
+  HEALTHCHECKS_URL: process.env.HEALTHCHECKS_URL!,
 };
 /* eslint-enable @typescript-eslint/no-non-null-assertion */
 
@@ -133,6 +134,8 @@ async function fetchAllData() {
     return; // If the task is already running, return early.
   }
   isRunning = true;
+  // Ping to indicate the job has started
+  await fetch(env.HEALTHCHECKS_URL + "/start", { method: "POST" });
 
   const startTime = Date.now(); // Start time
   let requestCount = 0; // To count the number of requests
@@ -208,9 +211,16 @@ async function fetchAllData() {
 
     clearTimeout(timeout);
     isRunning = false; // Reset the lock after the task completes.
+    await fetch(env.HEALTHCHECKS_URL, { method: "POST" }); // Ping to indicate the job has completed
   } catch (error) {
     console.error(`Error during fetchAllData: ${error}`);
     operationStatus = `failed with error: ${error}`;
+    // Ping to indicate the job has failed
+    await fetch(env.HEALTHCHECKS_URL + "/fail", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ error: `Error during fetchAllData: ${error}` }),
+    });
   } finally {
     const endTime = Date.now(); // End time
     const elapsedTime = (endTime - startTime) / 1000; // Elapsed time in seconds
