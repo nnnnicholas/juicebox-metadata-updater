@@ -1,6 +1,6 @@
 # Juicebox Metadata Updater
 
-This cron process refreshes Juicebox Project NFT and Juicebox Cards metadata on Opensea. The metadata is updating as time elapses and transactions are made, and this utility helps keep Opensea's offchain cache, which many people rely upon, up to date.
+This cron process refreshes Juicebox Project NFT and Juicebox Cards metadata on Opensea. The metadata is updating as time elapses and transactions are made, and this utility helps keep Opensea's offchain cache, which many website and apps rely upon, up to date.
 
 ## Setup
 
@@ -21,7 +21,7 @@ This project uses `pnpm` as a package manager. If you don't have `pnpm` installe
 npm install -g pnpm
 ```
 
-Then  the project dependencies:
+Then the project dependencies:
 
 ```bash
 pnpm install
